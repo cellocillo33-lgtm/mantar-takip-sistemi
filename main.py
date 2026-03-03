@@ -4,7 +4,6 @@ import os
 import streamlit_authenticator as stauth
 from datetime import datetime
 from io import BytesIO
-import copy # Hatanın çözümü için bu kütüphaneyi ekledik
 
 # --- DOSYA SİSTEMİ HAZIRLIĞI ---
 GELIR_F = "gelirler.csv"
@@ -24,12 +23,20 @@ def dosyaları_hazirla():
 
 dosyaları_hazirla()
 
-# --- GÜVENLİK VE GİRİŞ SİSTEMİ (HATA DÜZELTİLDİ) ---
-# Secrets verisini tamamen bağımsız bir kopya haline getiriyoruz
-credentials_config = copy.deepcopy(dict(st.secrets['credentials']))
+# --- GÜVENLİK VE GİRİŞ SİSTEMİ (KESİN ÇÖZÜM) ---
+# Secrets'tan verileri tek tek çekip yeni bir sözlük yapıyoruz. 
+# Bu yöntem kopyalama hatasını (RecursionError) tamamen engeller.
+user_data = {}
+for username, info in st.secrets["credentials"]["usernames"].items():
+    user_data[username] = {
+        "name": info["name"],
+        "password": info["password"]
+    }
+
+config = {"usernames": user_data}
 
 authenticator = stauth.Authenticate(
-    credentials_config,
+    config,
     st.secrets['cookie']['name'],
     st.secrets['cookie']['key'],
     st.secrets['cookie']['expiry_days']
