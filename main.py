@@ -4,6 +4,7 @@ import os
 import streamlit_authenticator as stauth
 from datetime import datetime
 from io import BytesIO
+import copy # Hatanın çözümü için bu kütüphaneyi ekledik
 
 # --- DOSYA SİSTEMİ HAZIRLIĞI ---
 GELIR_F = "gelirler.csv"
@@ -23,17 +24,18 @@ def dosyaları_hazirla():
 
 dosyaları_hazirla()
 
-# --- GÜVENLİK VE GİRİŞ SİSTEMİ ---
-# Hata almamak için Secrets verisini kopyalıyoruz
-credentials = dict(st.secrets['credentials'])
+# --- GÜVENLİK VE GİRİŞ SİSTEMİ (HATA DÜZELTİLDİ) ---
+# Secrets verisini tamamen bağımsız bir kopya haline getiriyoruz
+credentials_config = copy.deepcopy(dict(st.secrets['credentials']))
 
 authenticator = stauth.Authenticate(
-    credentials,
+    credentials_config,
     st.secrets['cookie']['name'],
     st.secrets['cookie']['key'],
     st.secrets['cookie']['expiry_days']
 )
 
+# Giriş Ekranı
 name, authentication_status, username = authenticator.login('main')
 
 if authentication_status:
