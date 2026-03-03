@@ -143,3 +143,28 @@ elif menu == "💾 Excel Raporu":
         pd.read_csv(HASAT_F).to_excel(writer, sheet_name='Hasat_Tonaj', index=False)
         pd.read_csv(ODA_F).to_excel(writer, sheet_name='Oda_Ayarlari', index=False)
     st.download_button("📥 Excel Dosyasını İndir", output.getvalue(), f"Mantar_Analiz_{datetime.now().date()}.xlsx")
+    import streamlit as st
+import streamlit_authenticator as stauth
+import yaml # requiremens'a eklemeye gerek yok, authenticator ile gelir
+
+# --- GİRİŞ SİSTEMİ ---
+authenticator = stauth.Authenticate(
+    st.secrets['credentials'],
+    st.secrets['cookie']['name'],
+    st.secrets['cookie']['key'],
+    st.secrets['cookie']['expiry_days']
+)
+
+name, authentication_status, username = authenticator.login('main')
+
+if authentication_status:
+    authenticator.logout('Çıkış Yap', 'sidebar')
+    st.write(f'Hoş geldin *{name}*')
+    
+    # BURADAN SONRA SENİN MEVCUT KODUNUN TAMAMI GELECEK
+    # (Dashboard, Gelir/Gider Girişi vb. tüm fonksiyonlar bu "if" bloğunun içinde olmalı)
+    
+elif authentication_status == False:
+    st.error('Kullanıcı adı veya şifre hatalı')
+elif authentication_status == None:
+    st.warning('Lütfen kullanıcı adı ve şifrenizi giriniz')
