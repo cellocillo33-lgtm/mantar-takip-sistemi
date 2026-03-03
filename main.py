@@ -8,104 +8,138 @@ from io import BytesIO
 GELIR_F = "gelirler.csv"
 GIDER_F = "giderler.csv"
 ODA_F = "oda_ayarlari.csv"
+HASAT_F = "hasat_kayitlari.csv"
 
 def dosyaları_hazirla():
     if not os.path.exists(GELIR_F):
         pd.DataFrame(columns=["Tarih", "Oda", "Müşteri", "KG", "Fiyat", "Kesinti", "Net"]).to_csv(GELIR_F, index=False)
     if not os.path.exists(GIDER_F):
         pd.DataFrame(columns=["Tarih", "Oda", "Tip", "Tutar"]).to_csv(GIDER_F, index=False)
+    if not os.path.exists(HASAT_F):
+        pd.DataFrame(columns=["Tarih", "Oda", "Hasat_KG"]).to_csv(HASAT_F, index=False)
     if not os.path.exists(ODA_F):
-        pd.DataFrame([{"Oda": f"Oda {i}", "Ekilis_Tarihi": str(datetime.now().date())} for i in range(1, 5)]).to_csv(ODA_F, index=False)
+        pd.DataFrame([{"Oda": f"Oda {i}", "Ekilis_Tarihi": str(datetime.now().date()), "Kompost_KG": 20000.0} for i in range(1, 5)]).to_csv(ODA_F, index=False)
 
 dosyaları_hazirla()
 
-st.set_page_config(page_title="Mantar Takip PRO", layout="wide")
-st.title("🍄 Mantar Üretim ve Tonaj Takibi")
+st.set_page_config(page_title="Mantar Verim Analizi", layout="wide")
+st.title("🍄 Mantar Üretim & Verimlilik Analiz Paneli")
 
-menu = st.sidebar.radio("Menü", ["📊 Durum Paneli", "📅 Oda Ayarları", "💰 Gelir Girişi", "📉 Gider Girişi", "💾 Excel İndir"])
+menu = st.sidebar.radio("Menü", ["📊 Verim & Durum Paneli", "📦 Günlük Hasat Girişi", "📅 Oda & Kompost Ayarları", "💰 Gelir Girişi", "📉 Gider Girişi", "💾 Excel Raporu"])
 ODALAR = ["Oda 1", "Oda 2", "Oda 3", "Oda 4"]
 
 # Verileri oku
 df_gelir = pd.read_csv(GELIR_F)
 df_gider = pd.read_csv(GIDER_F)
 df_oda = pd.read_csv(ODA_F)
+df_hasat = pd.read_csv(HASAT_F)
 
 # GENEL GİDERLERİ 4'E BÖL
 genel_giderler = df_gider[df_gider["Oda"] == "GENEL"]["Tutar"].sum()
 oda_basi_genel = genel_giderler / 4
 
-if menu == "📊 Durum Paneli":
-    st.header("Odaların Verimlilik ve Finansal Durumu")
+if menu == "📊 Verim & Durum Paneli":
+    st.header("Oda Bazlı Verim ve Maliyet Analizi")
     cols = st.columns(4)
+    
     for i, oda in enumerate(ODALAR):
         with cols[i]:
-            # Gün hesaplama
-            tarih_str = df_oda[df_oda["Oda"] == oda]["Ekilis_Tarihi"].values[0]
-            ekilis = pd.to_datetime(tarih_str)
-            gun = (datetime.now() - ekilis).days
+            # Verileri çek
+            oda_info = df_oda[df_oda["Oda"] == oda].iloc[0]
+            kompost_kg = oda_info["Kompost_KG"]
+            ekilis_t = pd.to_datetime(oda_info["Ekilis_Tarihi"])
+            gun = (datetime.now() - ekilis_t).days
             
-            # Tonaj ve Finansal hesaplama (Aktif dönem verileri)
-            # Not: İsterseniz buraya filtre ekleyip sadece son ekilişten sonrasını saydırabiliriz.
-            oda_gelir_df = df_gelir[df_gelir["Oda"] == oda]
-            toplam_kg = oda_gelir_df["KG"].sum()
-            gelir = oda_gelir_df["Net"].sum()
+            # Hasat ve Verim Hesabı
+            toplam_hasat = df_hasat[df_hasat["Oda"] == oda]["Hasat_KG"].sum()
+            verim_orani = (toplam_hasat / kompost_kg * 100) if kompost_kg > 0 else 0
             
-            oda_gider = df_gider[df_gider["Oda"] == oda]["Tutar"].sum() + oda_basi_genel
-            kar = gelir - oda_gider
+            # Finansal Hesap
+            toplam_gelir = df_gelir[df_gelir["Oda"] == oda]["Net"].sum()
+            oda_ozel_gider = df_gider[df_gider["Oda"] == oda]["Tutar"].sum()
+            toplam_maliyet = oda_ozel_gider + oda_basi_genel
+            kar_zarar = toplam_gelir - toplam_maliyet
             
-            # KG başı maliyet (Opsiyonel)
-            kg_maliyet = oda_gider / toplam_kg if toplam_kg > 0 else 0
+            # KG Başı Maliyet
+            kg_maliyet = toplam_maliyet / toplam_hasat if toplam_hasat > 0 else 0
             
-            # Kart Tasarımı
-            st.subheader(oda)
+            # GÖRSELLEŞTİRME
+            st.subheader(f"📍 {oda}")
             st.info(f"📅 {gun}. Gün")
-            st.metric("Toplam Tonaj", f"{toplam_kg:,.0f} KG")
-            st.metric("Kâr/Zarar", f"{kar:,.0f} TL", delta=f"{gelir:,.0f} Gelir")
             
-            with st.expander("Detaylar"):
-                st.write(f"Maliyet: {oda_gider:,.0f} TL")
-                st.write(f"KG Başı Maliyet: {kg_maliyet:,.2f} TL")
+            # Verim Metrikleri
+            st.metric("Verim Oranı", f"%{verim_orani:.1f}", help="Toplam Hasat / Serilen Kompost")
+            st.metric("Toplam Hasat", f"{toplam_hasat:,.0f} KG")
+            
+            # Maliyet Metrikleri
+            st.metric("Kâr/Zarar", f"{kar_zarar:,.0f} TL", delta=f"Maliyet: {toplam_maliyet:,.0f}", delta_color="inverse")
+            
+            with st.expander("🔍 Detaylı Analiz"):
+                st.write(f"Serilen Kompost: {kompost_kg:,.0f} KG")
+                st.write(f"1 KG Mantar Maliyeti: **{kg_maliyet:.2f} TL**")
+                st.write(f"Net Satış Geliri: {toplam_gelir:,.0f} TL")
             st.divider()
 
-elif menu == "📅 Oda Ayarları":
-    st.header("Yeni Dönem Başlat")
-    st.write("Bir odayı boşaltıp yeni kompost ektiğinizde tarihi buradan güncelleyin.")
-    secilen = st.selectbox("Oda Seç", ODALAR)
-    yeni_t = st.date_input("Yeni Ekiliş Tarihi")
-    if st.button("Tarihi Güncelle"):
-        df_oda.loc[df_oda["Oda"] == secilen, "Ekilis_Tarihi"] = str(yeni_t)
+elif menu == "📦 Günlük Hasat Girişi":
+    st.header("Günlük Hasat (Tonaj) Girişi")
+    st.write("Bugün topladığınız mantar miktarını buraya işleyin.")
+    with st.form("hasat_form"):
+        h_tarih = st.date_input("Hasat Tarihi")
+        h_oda = st.selectbox("Oda Seç", ODALAR)
+        h_kg = st.number_input("Hasat Edilen Miktar (KG)", min_value=0.0, step=0.1)
+        if st.form_submit_button("Hasatı Kaydet"):
+            yeni_h = pd.DataFrame([[h_tarih, h_oda, h_kg]], columns=df_hasat.columns)
+            yeni_h.to_csv(HASAT_F, mode='a', header=False, index=False)
+            st.success(f"{h_oda} için {h_kg} KG hasat kaydedildi!")
+
+elif menu == "📅 Oda & Kompost Ayarları":
+    st.header("Yeni Dönem ve Kompost Bilgileri")
+    secilen = st.selectbox("Düzenlenecek Oda", ODALAR)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        yeni_t = st.date_input("Yeni Ekiliş Tarihi", value=pd.to_datetime(df_oda[df_oda["Oda"]==secilen]["Ekilis_Tarihi"].values[0]))
+    with col2:
+        yeni_kompost = st.number_input("Serilen Toplam Kompost (KG)", value=float(df_oda[df_oda["Oda"]==secilen]["Kompost_KG"].values[0]))
+        
+    if st.button("Oda Ayarlarını Güncelle"):
+        df_oda.loc[df_oda["Oda"] == secilen, ["Ekilis_Tarihi", "Kompost_KG"]] = [str(yeni_t), yeni_kompost]
         df_oda.to_csv(ODA_F, index=False)
-        st.success(f"{secilen} başarıyla güncellendi. Artık gün sayacı bu tarihten başlar.")
+        st.success("Ayarlar başarıyla güncellendi. Verim hesaplamaları bu kompost miktarına göre yapılacaktır.")
 
 elif menu == "💰 Gelir Girişi":
-    # (Gelir girişi kodu aynı kalıyor, sadece Dashboard'da KG'leri topluyoruz)
+    st.header("Satış (Gelir) Kaydı")
     with st.form("gelir"):
         t = st.date_input("Satış Tarihi")
-        o = st.selectbox("Oda", ODALAR)
-        m = st.text_input("Müşteri/Hal")
-        k = st.number_input("Satılan Kilogram (KG)", min_value=0.0)
+        o = st.selectbox("Hangi Odadan Satıldı?", ODALAR)
+        m = st.text_input("Müşteri / Hal Adı")
+        k = st.number_input("Satılan KG", min_value=0.0)
         f = st.number_input("Birim Fiyat (TL)", min_value=0.0)
         ke = st.number_input("Kesinti (TL)", min_value=0.0)
         if st.form_submit_button("Satışı Kaydet"):
             net = (k * f) - ke
             yeni = pd.DataFrame([[t, o, m, k, f, ke, net]], columns=df_gelir.columns)
             yeni.to_csv(GELIR_F, mode='a', header=False, index=False)
-            st.success(f"Kayıt Başarılı! {k} KG sisteme işlendi.")
+            st.success("Satış başarıyla işlendi.")
 
 elif menu == "📉 Gider Girişi":
+    st.header("Harcama (Gider) Kaydı")
     with st.form("gider"):
         t = st.date_input("Gider Tarihi")
-        o = st.selectbox("Ait Olduğu Yer", ODALAR + ["GENEL"])
-        tp = st.selectbox("Gider Tipi", ["Kompost", "Elektrik", "Maaş", "İlaç", "Nakliye", "Diğer"])
+        o = st.selectbox("İlgili Yer", ODALAR + ["GENEL"])
+        tp = st.selectbox("Gider Tipi", ["Kompost", "Elektrik", "Maaş", "İlaç", "Nakliye", "Kira", "Diğer"])
         tu = st.number_input("Tutar (TL)", min_value=0.0)
         if st.form_submit_button("Gideri Kaydet"):
             yeni = pd.DataFrame([[t, o, tp, tu]], columns=df_gider.columns)
             yeni.to_csv(GIDER_F, mode='a', header=False, index=False)
             st.success("Gider kaydedildi.")
 
-elif menu == "💾 Excel İndir":
+elif menu == "💾 Excel Raporu":
+    st.header("Verileri Excel Olarak Al")
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        pd.read_csv(GELIR_F).to_excel(writer, sheet_name='Gelirler', index=False)
+        pd.read_csv(GELIR_F).to_excel(writer, sheet_name='Satışlar', index=False)
         pd.read_csv(GIDER_F).to_excel(writer, sheet_name='Giderler', index=False)
-    st.download_button("📥 Excel Raporunu İndir", output.getvalue(), f"Mantar_Takip_{datetime.now().date()}.xlsx")
+        pd.read_csv(HASAT_F).to_excel(writer, sheet_name='Hasat_Tonaj', index=False)
+        pd.read_csv(ODA_F).to_excel(writer, sheet_name='Oda_Ayarlari', index=False)
+    st.download_button("📥 Excel Dosyasını İndir", output.getvalue(), f"Mantar_Analiz_{datetime.now().date()}.xlsx")
