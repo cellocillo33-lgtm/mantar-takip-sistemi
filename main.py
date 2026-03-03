@@ -23,9 +23,8 @@ def dosyaları_hazirla():
 
 dosyaları_hazirla()
 
-# --- GÜVENLİK VE GİRİŞ SİSTEMİ (KESİN ÇÖZÜM) ---
-# Secrets'tan verileri tek tek çekip yeni bir sözlük yapıyoruz. 
-# Bu yöntem kopyalama hatasını (RecursionError) tamamen engeller.
+# --- GÜVENLİK VE GİRİŞ SİSTEMİ (YENİ SÜRÜM UYUMLU) ---
+# Secrets verilerini güvenli bir sözlüğe aktarıyoruz
 user_data = {}
 for username, info in st.secrets["credentials"]["usernames"].items():
     user_data[username] = {
@@ -42,14 +41,16 @@ authenticator = stauth.Authenticate(
     st.secrets['cookie']['expiry_days']
 )
 
-# Giriş Ekranı
-name, authentication_status, username = authenticator.login('main')
+# YENİ KULLANIM: login fonksiyonu artık doğrudan değişken döndürmez
+authenticator.login(location='main')
 
-if authentication_status:
+if st.session_state["authentication_status"]:
     st.set_page_config(page_title="Mantar Takip PRO", layout="wide")
     authenticator.logout('Çıkış Yap', 'sidebar')
     
+    name = st.session_state["name"]
     st.sidebar.title(f"Hoş geldin, {name}")
+    
     menu = st.sidebar.radio("Menü", [
         "📊 Verim & Durum Paneli", 
         "📦 Günlük Hasat Girişi", 
@@ -154,7 +155,7 @@ if authentication_status:
             pd.read_csv(HASAT_F).to_excel(writer, sheet_name='Hasat', index=False)
         st.download_button("Excel İndir", output.getvalue(), "Mantar_Takip.xlsx")
 
-elif authentication_status == False:
+elif st.session_state["authentication_status"] is False:
     st.error('Kullanıcı adı veya şifre hatalı')
-elif authentication_status == None:
+elif st.session_state["authentication_status"] is None:
     st.warning('Lütfen giriş yapın')
