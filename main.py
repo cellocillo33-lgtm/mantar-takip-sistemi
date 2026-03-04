@@ -1,3 +1,4 @@
+st.write(stauth.Hasher(['cn5244', 'frk4433']).generate())
 import streamlit as st
 import pandas as pd
 import os
