@@ -1,6 +1,4 @@
 streamlit
 pandas
-xlsxwriter
-gspread
-oauth2client
 st-gsheets-connection
+xlsxwrite
