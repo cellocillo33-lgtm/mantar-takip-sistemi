@@ -23,8 +23,8 @@ def dosyaları_hazirla():
 
 dosyaları_hazirla()
 
-# --- GÜVENLİK VE GİRİŞ SİSTEMİ (YENİ SÜRÜM UYUMLU) ---
-# Secrets verilerini güvenli bir sözlüğe aktarıyoruz
+# --- GÜVENLİK VE GİRİŞ SİSTEMİ ---
+# Hata almamak için verileri manuel bir sözlüğe aktarıyoruz
 user_data = {}
 for username, info in st.secrets["credentials"]["usernames"].items():
     user_data[username] = {
@@ -34,6 +34,7 @@ for username, info in st.secrets["credentials"]["usernames"].items():
 
 config = {"usernames": user_data}
 
+# Yeni sürüm uyumlu kimlik doğrulayıcı
 authenticator = stauth.Authenticate(
     config,
     st.secrets['cookie']['name'],
@@ -41,9 +42,10 @@ authenticator = stauth.Authenticate(
     st.secrets['cookie']['expiry_days']
 )
 
-# YENİ KULLANIM: login fonksiyonu artık doğrudan değişken döndürmez
+# Giriş formunu ekrana bas
 authenticator.login(location='main')
 
+# Giriş kontrolü
 if st.session_state["authentication_status"]:
     st.set_page_config(page_title="Mantar Takip PRO", layout="wide")
     authenticator.logout('Çıkış Yap', 'sidebar')
@@ -158,4 +160,4 @@ if st.session_state["authentication_status"]:
 elif st.session_state["authentication_status"] is False:
     st.error('Kullanıcı adı veya şifre hatalı')
 elif st.session_state["authentication_status"] is None:
-    st.warning('Lütfen giriş yapın')
+    st.warning('Lütfen kullanıcı adı ve şifrenizi giriniz')
