@@ -10,7 +10,7 @@ st.set_page_config(page_title="Mantar Takip Cloud", layout="wide")
 # --- GOOGLE SHEETS BAĞLANTISI ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# Verileri Google Sheets'ten Çekme Fonksiyonu
+# Verileri Çekme Fonksiyonu
 def verileri_yukle():
     gelir = conn.read(worksheet="Gelirler")
     gider = conn.read(worksheet="Giderler")
@@ -18,7 +18,7 @@ def verileri_yukle():
     oda = conn.read(worksheet="Oda_Ayarlari")
     return gelir, gider, hasat, oda
 
-# Verileri Google Sheets'e Kaydetme Fonksiyonu
+# Verileri Kaydetme Fonksiyonu
 def veri_kaydet(df, sheet_name):
     conn.update(worksheet=sheet_name, data=df)
     st.cache_data.clear()
@@ -26,8 +26,9 @@ def veri_kaydet(df, sheet_name):
 # --- BAŞLANGIÇ VERİLERİNİ ÇEK ---
 try:
     df_gelir, df_gider, df_hasat, df_oda = verileri_yukle()
-except:
-    st.error("Google Sheets bağlantısı kurulamadı. Lütfen Secrets ve Tablo isimlerini kontrol edin.")
+except Exception as e:
+    st.error(f"Bağlantı Hatası: {e}")
+    st.info("Lütfen Google Tablonuzdaki sayfa isimlerinin (Gelirler, Giderler, Hasatlar, Oda_Ayarlari) ve sütun başlıklarının doğru olduğundan emin olun.")
     st.stop()
 
 # --- YAN MENÜ ---
@@ -46,7 +47,7 @@ menu = st.sidebar.radio("Menü", [
 ODALAR = ["Oda 1", "Oda 2", "Oda 3", "Oda 4"]
 
 # Genel Gider Paylaştırma
-genel_giderler = df_gider[df_gider["Oda"] == "GENEL"]["Tutar"].sum()
+genel_giderler = df_gider[df_gider["Oda"] == "GENEL"]["Tutar"].sum() if not df_gider.empty else 0
 oda_basi_genel = genel_giderler / 4
 
 if menu == "📊 Gelişmiş Durum Paneli":
@@ -54,23 +55,26 @@ if menu == "📊 Gelişmiş Durum Paneli":
     cols = st.columns(4)
     for i, oda in enumerate(ODALAR):
         with cols[i]:
-            info = df_oda[df_oda["Oda"] == oda].iloc[0]
-            kompost = info["Kompost_KG"]
-            ekilis = pd.to_datetime(info["Ekilis_Tarihi"])
-            gun = (datetime.now() - ekilis).days
-            
-            toplam_hasat = df_hasat[df_hasat["Oda"] == oda]["Hasat_KG"].sum()
-            verim = (toplam_hasat / kompost * 100) if kompost > 0 else 0
-            
-            gelir = df_gelir[df_gelir["Oda"] == oda]["Net_Kazanc"].sum()
-            maliyet = df_gider[df_gider["Oda"] == oda]["Tutar"].sum() + oda_basi_genel
-            kar = gelir - maliyet
-            
-            st.subheader(oda)
-            st.info(f"📅 {gun}. Gün")
-            st.metric("Verim", f"%{verim:.1f}")
-            st.metric("Hasat", f"{toplam_hasat:,.0f} KG")
-            st.metric("Kâr/Zarar", f"{kar:,.0f} TL")
+            if not df_oda.empty and oda in df_oda["Oda"].values:
+                info = df_oda[df_oda["Oda"] == oda].iloc[0]
+                kompost = info["Kompost_KG"]
+                ekilis = pd.to_datetime(info["Ekilis_Tarihi"])
+                gun = (datetime.now() - ekilis).days
+                
+                toplam_hasat = df_hasat[df_hasat["Oda"] == oda]["Hasat_KG"].sum() if not df_hasat.empty else 0
+                verim = (toplam_hasat / kompost * 100) if kompost > 0 else 0
+                
+                gelir = df_gelir[df_gelir["Oda"] == oda]["Net_Kazanc"].sum() if not df_gelir.empty else 0
+                maliyet = (df_gider[df_gider["Oda"] == oda]["Tutar"].sum() if not df_gider.empty else 0) + oda_basi_genel
+                kar = gelir - maliyet
+                
+                st.subheader(oda)
+                st.info(f"📅 {gun}. Gün")
+                st.metric("Verim", f"%{verim:.1f}")
+                st.metric("Hasat", f"{toplam_hasat:,.0f} KG")
+                st.metric("Kâr/Zarar", f"{kar:,.0f} TL")
+            else:
+                st.warning(f"{oda} ayarı bulunamadı.")
             st.divider()
 
 elif menu == "📦 Hasat Girişi":
